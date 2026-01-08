@@ -1,0 +1,200 @@
+:root {
+    --bg: #0f172a;
+    --panel: #111827;
+    --muted: #94a3b8;
+    --text: #e5e7eb;
+    --danger: #ef4444;
+    --border: #1f2937;
+    --chip: #0b1020;
+    --chip-border: #1f2937;
+    --btn: #162235;
+}
+
+html,
+body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Noto Sans", sans-serif;
+    margin: 0;
+}
+
+.container {
+    max-width: 1100px;
+    margin: 40px auto;
+    padding: 0 20px;
+}
+
+h1 {
+    font-size: 1.6rem;
+    margin: 0 0 16px;
+}
+
+.card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 18px;
+}
+
+.inline {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 12px;
+    height: 2rem
+}
+
+.inline input {
+    height: 80%;
+}
+
+label {
+    font-size: 0.9rem;
+    color: var(--muted);
+}
+
+.controls {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-top: 8px;
+}
+
+button {
+    padding: 10px 14px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: var(--btn);
+    color: var(--text);
+    cursor: pointer;
+}
+
+.primary {
+    background: #0b3b1f;
+    border-color: #134e4a;
+}
+
+.accent {
+    background: #0b2550;
+    border-color: #1f3b77;
+}
+
+.danger {
+    background: #3a0b0b;
+    border-color: #5b1a1a;
+    color: #fecaca;
+}
+
+.muted {
+    color: var(--muted);
+    margin: 10px 0;
+}
+
+/* Hàng điều kiện: Name + vùng giá trị + các nút */
+.cond-row {
+    display: grid;
+    grid-template-columns: 1.2fr 2.2fr auto;
+    gap: 12px;
+    align-items: start;
+    margin-bottom: 8px;
+}
+
+.cond-name {
+    width: 100%;
+    padding: 10px 12px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: #0b1020;
+    color: var(--text);
+    outline: none;
+}
+
+.cond-name.error {
+    border-color: var(--danger);
+    box-shadow: 0 0 0 2px rgba(239, 68, 68, .18);
+}
+
+.values-wrap {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.value-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--chip);
+    border: 1px solid var(--chip-border);
+    border-radius: 10px;
+    padding: 6px 8px;
+}
+
+.value-chip input {
+    width: 140px;
+    max-width: 40vw;
+    padding: 8px 10px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: #0a0f1e;
+    color: var(--text);
+    outline: none;
+}
+
+.remove-value {
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: #1f2937;
+    color: #fecaca;
+    padding: 6px 8px;
+    cursor: pointer;
+}
+
+.cond-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.table-wrap {
+    overflow: auto;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    min-width: 600px;
+}
+
+th,
+td {
+    border-bottom: 1px solid var(--border);
+    padding: 10px 12px;
+    text-align: left;
+    white-space: nowrap;
+}
+
+th {
+    background: #0b1020;
+    position: sticky;
+    top: 0;
+    z-index: 1;
+}
+
+.stat {
+    margin: 10px 0;
+    color: var(--muted);
+}
+
+.code {
+    background: #0b1020;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 12px;
+    white-space: pre;
+    overflow: auto;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+    font-size: 0.9rem;
+}

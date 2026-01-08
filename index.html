@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="vi">
+
+<head>
+  <meta charset="utf-8" />
+  <title>Case Generator from Conditions (Dynamic Values) with Equipment Type</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+
+<body>
+  <div class="container">
+    <div class="card">
+      <div class="inline">
+        <div>
+          <label for="equipmentTypeName">Equipment Type Name</label>
+          <input id="equipmentTypeName" type="text" placeholder='ex: Escalator' />
+        </div>
+        <div>
+          <label for="commandName">Command Name</label>
+          <input id="commandName" type="text" placeholder='ex: Power On' />
+        </div>
+      </div>
+
+      <div class="controls">
+        <button class="primary" id="addCondition">➕ Add condition</button>
+        <button id="loadSample">📥 Example (included 5 values)</button>
+        <!-- <button class="accent" id="saveConfig">💾 Save config</button>
+        <button class="danger" id="clearConfig">🗑️ Remove config</button> -->
+      </div>
+
+      <p class="muted">Each condition can have 2, 3, 4, 5... values. Click “➕ Value” to add
+        value row.</p>
+      <div id="conditions"></div>
+    </div>
+
+    <div class="card">
+      <div class="controls">
+        <button class="primary" id="generate">🚀 Generate case(s)</button>
+        <!-- <button id="downloadCSV" disabled>⬇️ CSV</button>
+        <button id="downloadJSON" disabled>⬇️ JSON</button> -->
+        <button id="downloadYAML" disabled>⬇️ YAML</button>
+        <button id="copyYAML" disabled>📋 Copy YAML</button>
+      </div>
+      <div id="stats" class="stat"></div>
+      <div class="table-wrap" id="tableWrap" style="display:none;">
+        <table id="resultsTable"></table>
+      </div>
+      <div id="yamlBlock" class="code" style="display:none;"></div>
+    </div>
+  </div>
+
+  <script src="/script.js"></script>
+</body>
+
+</html>
