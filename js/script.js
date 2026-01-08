@@ -300,7 +300,7 @@ el('#addCondition').addEventListener('click', () => {
     addConditionRow();
     validateUniqueNames(true); // re-check sau khi thêm dòng
 });
-el('#clearConfig').addEventListener('click', () => { clearConfig(); });
+// el('#clearConfig').addEventListener('click', () => { clearConfig(); });
 el('#loadSample').addEventListener('click', () => {
     conditionsWrap.innerHTML = '';
     // 3 điều kiện nhị phân
