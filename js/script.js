@@ -204,18 +204,19 @@ function updateStats(equipmentTypeName, commandsCasesMap) {
 // }
 
 
+
 function yamlQuoteAlways(str) {
   // Luôn bọc trong "..." và escape dấu "
   const s = String(str ?? '');
   return `"${s.replace(/"/g, '\\"')}"`;
 }
 
-function yamlSafe(str) {
-  // Quote khi cần cho VALUES (không áp dụng cho Name ở Commands/Scenarios)
-  if (str == null) return '""';
-  const s = String(str);
-  // Cho phép chuỗi "an toàn" không cần dấu "
-  return (/^[A-Za-z0-9_\-]+$/.test(s)) ? s : `"${s.replace(/"/g, '\\"')}"`;
+// Trả về dạng plain (KHÔNG có dấu nháy) cho values
+function yamlPlain(str) {
+  // Cho giá trị null/undefined -> chuỗi rỗng (không quote)
+  if (str == null) return '';
+  // Giữ nguyên chuỗi, không thêm dấu nháy
+  return String(str);
 }
 
 function toYAML(equipmentTypeName, commandsCasesMap) {
@@ -234,19 +235,19 @@ function toYAML(equipmentTypeName, commandsCasesMap) {
     lines.push(`        Scenarios:`);
 
     cases.forEach((c, idx) => {
-      // ❌ KHÔNG quote Scenario Name (Case n)
+      // ❌ KHÔNG quote Scenario Name
       lines.push(`          - Name: Case ${idx + 1}`);
       lines.push(`            Conditions:`);
-
       Object.entries(c).forEach(([k, v]) => {
-        // ✅ VALUES vẫn yamlSafe
-        lines.push(`              ${k}: ${yamlSafe(v)}`);
+        // ❌ KHÔNG quote values
+        lines.push(`              ${k}: ${yamlPlain(v)}`);
       });
     });
   });
 
   return lines.join('\n');
 }
+
 
 function toJSON(equipmentTypeName, commandsCasesMap) {
     return JSON.stringify({
