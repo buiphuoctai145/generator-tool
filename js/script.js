@@ -147,24 +147,38 @@ function validateUniqueConditionNames(commandBlock, showHints = true) {
 }
 
 // ====== Sinh tổ hợp cho MỘT command (mixed-radix) ======
+
 function generateCombinationsForCommand(conds) {
-    if (!Array.isArray(conds) || conds.length === 0) return [];
-    for (const c of conds) {
-        if (!Array.isArray(c.values) || c.values.length < 2) {
-            throw new Error(`Condition "${c.name}" must have at least 2 values.`);
-        }
+  if (!Array.isArray(conds) || conds.length === 0) return [];
+
+  // Cho phép Condition có đúng 1 Value; vẫn chặn trường hợp không có Value nào.
+  for (const c of conds) {
+    if (!Array.isArray(c.values) || c.values.length < 1) {
+      throw new Error(`Condition "${c.name}" must have at least 1 value.`);
     }
-    const radices = conds.map(c => c.values.length);
-    const total = radices.reduce((acc, k) => acc * k, 1);
-    const out = []; const idxs = Array(conds.length).fill(0);
-    for (let t = 0; t < total; t++) {
-        const caseObj = {};
-        for (let i = 0; i < conds.length; i++) caseObj[conds[i].name] = conds[i].values[idxs[i]];
-        out.push(caseObj);
-        for (let i = conds.length - 1; i >= 0; i--) { idxs[i]++; if (idxs[i] < radices[i]) break; idxs[i] = 0; }
+  }
+
+  const radices = conds.map(c => c.values.length);           // ví dụ: [2, 1, 3, ...]
+  const total = radices.reduce((acc, k) => acc * k, 1);      // mixed‑radix: 1 value vẫn nhân bình thường
+  const out = []; const idxs = Array(conds.length).fill(0);  // bộ đếm mixed‑radix
+
+  for (let t = 0; t < total; t++) {
+    const caseObj = {};
+    for (let i = 0; i < conds.length; i++) {
+      caseObj[conds[i].name] = conds[i].values[idxs[i]];
     }
-    return out;
+    out.push(caseObj);
+
+    // Điều kiện cuối tăng nhanh nhất; nếu radix=1 thì vị trí đó không tạo nhịp (vì luôn 0)
+    for (let i = conds.length - 1; i >= 0; i--) {
+      idxs[i]++;
+      if (idxs[i] < radices[i]) break;
+      idxs[i] = 0;
+    }
+  }
+  return out;
 }
+
 
 // ====== Stats tổng hợp ======
 function updateStats(equipmentTypeName, commandsCasesMap) {
