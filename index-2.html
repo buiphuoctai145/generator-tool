@@ -1,0 +1,415 @@
+
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8" />
+  <title>Trình tạo Cases (marker key động, không bảng)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    :root { --bg:#0f172a; --panel:#111827; --muted:#94a3b8; --text:#e5e7eb;
+            --danger:#ef4444; --border:#1f2937; --chip:#0b1020; --chip-border:#1f2937; --btn:#162235; }
+    html, body { background: var(--bg); color: var(--text); font-family: system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,"Noto Sans",sans-serif; margin:0; }
+    .container { max-width: 1100px; margin: 40px auto; padding: 0 20px; }
+    h1 { font-size: 1.6rem; margin: 0 0 16px; }
+    .card { background: var(--panel); border: 1px solid var(--border); border-radius:12px; padding:16px; margin-bottom:18px; }
+    label { font-size: 0.9rem; color: var(--muted); }
+    .controls { display:flex; gap:10px; flex-wrap:wrap; margin-top:8px; }
+    button { padding:10px 14px; border-radius:10px; border:1px solid var(--border); background:var(--btn); color:var(--text); cursor:pointer; }
+    .primary{ background:#0b3b1f; border-color:#134e4a; } .accent{ background:#0b2550; border-color:#1f3b77; }
+    .danger{ background:#3a0b0b; border-color:#5b1a1a; color:#fecaca; } .muted{ color:var(--muted); }
+    input[type="text"]{ width:100%; padding:10px 12px; border-radius:8px; border:1px solid var(--border); background:#0b1020; color:var(--text); outline:none; }
+    .stat{ margin-top:8px; color:var(--muted); }
+    .code{ background:#0b1020; border:1px solid var(--border); border-radius:12px; padding:12px; white-space:pre; overflow:auto;
+           font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace; font-size:0.9rem; }
+
+    /* Command block */
+    .cmd-block{ border:1px dashed var(--border); border-radius:12px; padding:12px; margin-top:12px; }
+    .cmd-header{ display:grid; grid-template-columns: 1fr auto; gap:12px; align-items:center; }
+    .cmd-name.error{ border-color:var(--danger); box-shadow:0 0 0 2px rgba(239,68,68,.18); }
+
+    /* Marker row (2 input: key + value) */
+    .marker-row{ display:grid; grid-template-columns: 1fr 1fr; gap:12px; align-items:center; margin:8px 0 12px; }
+    .marker-hint{ font-size:0.85rem; color:var(--muted); margin-top:-6px; }
+
+    /* Condition row */
+    .cond-row{ display:grid; grid-template-columns: 1.2fr 2.2fr auto; gap:12px; align-items:start; margin-bottom:8px; }
+    .cond-name.error{ border-color:var(--danger); box-shadow:0 0 0 2px rgba(239,68,68,.18); }
+    .values-wrap{ display:flex; flex-wrap:wrap; gap:8px; }
+    .value-chip{ display:inline-flex; align-items:center; gap:6px; background:var(--chip); border:1px solid var(--chip-border); border-radius:10px; padding:6px 8px; }
+    .value-chip input{ width:160px; max-width:40vw; padding:8px 10px; border-radius:8px; border:1px solid var(--border); background:#0a0f1e; color:var(--text); outline:none; }
+    .remove-btn{ border:1px solid var(--border); border-radius:6px; background:#1f2937; color:#fecaca; padding:6px 8px; cursor:pointer; }
+    .cond-actions{ display:flex; gap:8px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Trình tạo Cases (Marker key nhập động, chèn CUỐI, không tham gia tổ hợp)</h1>
+
+    <!-- Equipment type -->
+    <div class="card">
+      <label for="equipmentTypeName">Equipment Type Name</label>
+      <input id="equipmentTypeName" type="text" placeholder='Ví dụ: Emergency Lighting Panel' />
+    </div>
+
+    <!-- Commands -->
+    <div class="card">
+      <div class="controls">
+        <button class="primary" id="addCommand">➕ Thêm Command</button>
+        <button id="loadSample">📥 Nạp ví dụ</button>
+        <button class="danger" id="clearAll">🗑️ Xóa tất cả Commands</button>
+      </div>
+      <div id="commandsContainer"></div>
+      <p class="muted">Mỗi Command có Conditions riêng (Values linh động). Nhập “Marker key” và “Marker value”: marker sẽ **chèn CUỐI** mọi case nhưng **không** tham gia tổ hợp.</p>
+    </div>
+
+    <!-- Generate & Export -->
+    <div class="card">
+      <div class="controls">
+        <button class="primary" id="generate">🚀 Tạo cases</button>
+        <button id="downloadJSON" disabled>⬇️ JSON</button>
+        <button id="downloadYAML" disabled>⬇️ YAML</button>
+        <button id="copyYAML" disabled>📋 Copy YAML</button>
+      </div>
+      <div id="stats" class="stat"></div>
+      <div id="yamlBlock" class="code" style="display:none;"></div>
+    </div>
+  </div>
+
+  <script>
+    // ====== Tiện ích DOM ======
+    const el = sel => document.querySelector(sel);
+    const make = (tag, attrs = {}, children = []) => {
+      const node = document.createElement(tag);
+      Object.entries(attrs).forEach(([k,v]) => { if (k === 'class') node.className = v; else if (k === 'text') node.textContent = v; else node.setAttribute(k, v); });
+      children.forEach(c => node.appendChild(c));
+      return node;
+    };
+
+    const commandsContainer = el('#commandsContainer');
+
+    // ====== Command block (marker key + value; conditions riêng) ======
+    function addCommandBlock({ name = '', markerKey = '', markerValue = '', conditions = [] } = {}) {
+      const block = make('div', { class: 'cmd-block' });
+
+      // Header: Command name + actions
+      const header = make('div', { class: 'cmd-header' });
+      const nameInput = make('input', { class: 'cmd-name', type: 'text', placeholder: 'Command name (ví dụ: On Control)' });
+      nameInput.value = name;
+
+      const headerActions = make('div', { class: 'controls' });
+      const addCondBtn = make('button', { class: 'accent', text: '➕ Condition' });
+      const removeCmdBtn = make('button', { class: 'danger', text: 'Xóa Command' });
+      headerActions.append(addCondBtn, removeCmdBtn);
+      header.append(nameInput, headerActions);
+
+      // Marker (2 input: key + value) — value có thể để trống
+      const markerRow = make('div', { class: 'marker-row' });
+      const markerKeyIn = make('input', { class: 'marker-key', type: 'text', placeholder: 'Marker key (ví dụ: bOnOffCmd)' });
+      const markerValIn = make('input', { class: 'marker-value', type: 'text', placeholder: 'Marker value (ví dụ: abc, có thể để trống)' });
+      markerKeyIn.value = markerKey;
+      markerValIn.value = markerValue;
+      const markerHint = make('div', { class: 'marker-hint', text: 'Marker sẽ chèn CUỐI mọi case của Command này; KHÔNG tham gia tổ hợp.' });
+
+      // Conditions list
+      const condList = make('div');
+
+      function addConditionRow({ name = '', values = ['Off', 'On'] } = {}) {
+        const row = make('div', { class: 'cond-row' });
+        const condName = make('input', { class: 'cond-name', type: 'text', placeholder: 'Tên điều kiện (ví dụ: bRemoteStatus)' });
+        condName.value = name;
+
+        const valuesWrap = make('div', { class: 'values-wrap' });
+        const addValueChip = (val = '') => {
+          const chip = make('div', { class: 'value-chip' });
+          const input = make('input', { type: 'text', placeholder: 'Giá trị' });
+          input.value = val;
+          const removeBtn = make('button', { class: 'remove-btn', text: '×' });
+          removeBtn.title = 'Xóa giá trị này';
+          removeBtn.addEventListener('click', () => chip.remove());
+          chip.append(input, removeBtn);
+          valuesWrap.appendChild(chip);
+        };
+        if (!Array.isArray(values) || values.length === 0) values = ['Off', 'On'];
+        values.forEach(v => addValueChip(v));
+
+        const actions = make('div', { class: 'cond-actions' });
+        const addValBtn = make('button', { class: 'accent', text: '➕ Giá trị' });
+        const removeCondBtn = make('button', { class: 'danger', text: 'Xóa điều kiện' });
+        addValBtn.addEventListener('click', () => addValueChip(''));
+        removeCondBtn.addEventListener('click', () => row.remove());
+
+        // realtime validate trùng tên trong phạm vi command này
+        condName.addEventListener('input', () => validateUniqueConditionNames(block, true));
+
+        row.append(condName, valuesWrap, actions);
+        actions.append(addValBtn, removeCondBtn);
+        condList.appendChild(row);
+      }
+
+      addCondBtn.addEventListener('click', () => { addConditionRow(); validateUniqueConditionNames(block, true); });
+      removeCmdBtn.addEventListener('click', () => { block.remove(); validateUniqueCommandNames(true); });
+
+      // Render
+      block.append(header, markerRow, condList, markerHint);
+      commandsContainer.appendChild(block);
+
+      // Nạp điều kiện sẵn có (nếu có)
+      (conditions || []).forEach(c => addConditionRow(c));
+
+      // Validate realtime cho command name
+      nameInput.addEventListener('input', () => validateUniqueCommandNames(true));
+    }
+
+    // ====== Đọc toàn bộ cấu hình ======
+    function readAll() {
+      const equipmentTypeName = (el('#equipmentTypeName').value || '').trim();
+      const commands = [...commandsContainer.querySelectorAll('.cmd-block')].map(block => {
+        const cmdName = (block.querySelector('.cmd-name').value || '').trim();
+        const markerKey = (block.querySelector('.marker-key')?.value || '').trim();
+        const markerValue = (block.querySelector('.marker-value')?.value || '').trim();
+
+        const condRows = [...block.querySelectorAll('.cond-row')];
+        const conds = condRows.map(row => {
+          const nameEl = row.querySelector('.cond-name');
+          if (!nameEl) return null;
+          const name = (nameEl.value || '').trim();
+          const values = [...row.querySelectorAll('.value-chip input')]
+            .map(inp => (inp.value || '').trim())
+            .filter(Boolean);
+          return { name, values };
+        }).filter(Boolean).filter(c => c.name.length > 0);
+
+        return { name: cmdName, markerKey, markerValue, conds };
+      }).filter(cmd => cmd.name.length > 0);
+      return { equipmentTypeName, commands };
+    }
+
+    // ====== Validation ======
+    const normalize = s => (s || '').trim().toLowerCase();
+
+    function validateUniqueCommandNames(showHints = true) {
+      const inputs = [...commandsContainer.querySelectorAll('.cmd-name')];
+      const counters = new Map();
+      inputs.forEach(inp => { inp.classList.remove('error'); inp.removeAttribute('title'); });
+      inputs.forEach(inp => { const n = normalize(inp.value); if (!n) return; counters.set(n, (counters.get(n)||0)+1); });
+      let dup = false;
+      if (showHints) {
+        inputs.forEach(inp => {
+          const n = normalize(inp.value); if (!n) return;
+          if ((counters.get(n)||0) > 1) { dup = true; inp.classList.add('error'); inp.title = 'Tên Command trùng'; }
+        });
+      } else { counters.forEach(cnt => { if (cnt > 1) dup = true; }); }
+      return { ok: !dup };
+    }
+
+    function validateUniqueConditionNames(commandBlock, showHints = true) {
+      const inputs = [...commandBlock.querySelectorAll('.cond-name')];
+      const counters = new Map();
+      inputs.forEach(inp => { inp.classList.remove('error'); inp.removeAttribute('title'); });
+      inputs.forEach(inp => { const n = normalize(inp.value); if (!n) return; counters.set(n, (counters.get(n)||0)+1); });
+      let dup = false;
+      if (showHints) {
+        inputs.forEach(inp => {
+          const n = normalize(inp.value); if (!n) return;
+          if ((counters.get(n)||0) > 1) { dup = true; inp.classList.add('error'); inp.title = 'Tên điều kiện trùng trong Command'; }
+        });
+      } else { counters.forEach(cnt => { if (cnt > 1) dup = true; }); }
+      return { ok: !dup };
+    }
+
+    // ====== Combinator (mixed‑radix; cho phép 1 value) ======
+    function generateCombinationsForCommand(conds) {
+      if (!Array.isArray(conds) || conds.length === 0) return [];
+      // Mỗi Condition cần >= 1 value (được phép = 1)
+      for (const c of conds) {
+        if (!Array.isArray(c.values) || c.values.length < 1) {
+          throw new Error(`Điều kiện "${c.name}" phải có ít nhất 1 giá trị (có thể là hằng).`);
+        }
+      }
+      const radices = conds.map(c => c.values.length);
+      const total = radices.reduce((acc, k) => acc * k, 1);
+      const out = []; const idxs = Array(conds.length).fill(0);
+      for (let t = 0; t < total; t++) {
+        const one = {};
+        for (let i = 0; i < conds.length; i++) one[conds[i].name] = conds[i].values[idxs[i]];
+        out.push(one);
+        for (let i = conds.length - 1; i >= 0; i--) { idxs[i]++; if (idxs[i] < radices[i]) break; idxs[i] = 0; }
+      }
+      return out;
+    }
+
+    // ====== Stats ======
+    function updateStats(equipmentTypeName, commandsCasesMap) {
+      const cmds = Object.keys(commandsCasesMap);
+      const totalCommands = cmds.length;
+      const totalCases = cmds.reduce((acc, k) => acc + (commandsCasesMap[k].length || 0), 0);
+      const perCmd = cmds.map(k => `${k}: ${commandsCasesMap[k].length} cases`).join(' · ');
+      el('#stats').textContent =
+        `Equipment Type: ${equipmentTypeName || '(chưa nhập)'} · Commands: ${totalCommands} · Tổng cases: ${totalCases}` +
+        (perCmd ? ` · ${perCmd}` : '');
+    }
+
+    // ====== YAML / JSON ======
+    function yamlQuoteAlways(str) { const s = String(str ?? ''); return `"${s.replace(/"/g, '\\"')}"`; }
+    function yamlPlain(str) { return str == null ? '' : String(str); }
+
+    function toYAML(equipmentTypeName, commandsCasesMap) {
+      const lines = [];
+      lines.push(`EquipmentTypes:`);
+      lines.push(`  - Name: ${yamlQuoteAlways((equipmentTypeName || 'Equipment').trim())}`); // CHỈ dòng này có dấu "
+
+      lines.push(`    Commands:`);
+      Object.entries(commandsCasesMap).forEach(([cmdName, cases]) => {
+        lines.push(`      - Name: ${(cmdName || 'Command').trim()}`);  // KHÔNG quote
+        lines.push(`        Scenarios:`);
+        cases.forEach((c, idx) => {
+          lines.push(`          - Name: Case ${idx + 1}`);             // KHÔNG quote
+          lines.push(`            Conditions:`);
+          // Duy trì thứ tự chèn thuộc tính trong object để marker là CUỐI cùng
+          Object.entries(c).forEach(([k, v]) => {
+            lines.push(`              ${k}: ${yamlPlain(v)}`);
+          });
+        });
+      });
+      return lines.join('\n');
+    }
+
+    function toJSON(equipmentTypeName, commandsCasesMap) {
+      return JSON.stringify({
+        EquipmentTypes: [
+          {
+            Name: equipmentTypeName || 'Equipment',
+            Commands: Object.entries(commandsCasesMap).map(([cmdName, cases]) => ({
+              Name: cmdName || 'Command',
+              Scenarios: cases.map((c, idx) => ({ Name: `Case ${idx + 1}`, Conditions: c }))
+            }))
+          }
+        ]
+      }, null, 2);
+    }
+
+    function enableExports(enabled) {
+      ['downloadJSON','downloadYAML','copyYAML'].forEach(id => el('#' + id).disabled = !enabled);
+    }
+
+    function download(filename, content, mime = 'text/plain') {
+      const blob = new Blob([content], { type: mime });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a'); a.href = url; a.download = filename;
+      document.body.appendChild(a); a.click();
+      setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 0);
+    }
+
+    // ====== Events ======
+    el('#addCommand').addEventListener('click', () => addCommandBlock());
+    el('#clearAll').addEventListener('click', () => { commandsContainer.innerHTML = ''; });
+
+    el('#loadSample').addEventListener('click', () => {
+      commandsContainer.innerHTML = '';
+      // Ví dụ 1: On Control (có marker key + value)
+      addCommandBlock({
+        name: 'On Control',
+        markerKey: 'bOnOffCmd',
+        markerValue: 'abc',     // có thể để trống
+        conditions: [
+          { name: 'bOnOffStatus', values: ['Off', 'On'] },
+          { name: 'bRemoteStatus', values: ['Local', 'Remote'] },
+          { name: 'bTripAlarm', values: ['Alarmed', 'Normal'] }
+        ]
+      });
+      // Ví dụ 2: Off Control (chỉ key, value trống)
+      addCommandBlock({
+        name: 'Off Control',
+        markerKey: 'bOnOffCmd',
+        markerValue: '',
+        conditions: [
+          { name: 'bOnOffStatus', values: ['Off', 'On'] },
+          { name: 'bRemoteStatus', values: ['Local', 'Remote'] }
+        ]
+      });
+      el('#equipmentTypeName').value = 'Emergency Lighting Panel';
+    });
+
+    let lastEquipmentType = '', lastCommandsCasesMap = {};
+
+    el('#generate').addEventListener('click', () => {
+      // Validate trùng Command
+      if (!validateUniqueCommandNames(true).ok) { alert('Có Command Name trùng. Hãy sửa trước khi tạo cases.'); return; }
+      // Validate trùng Condition trong từng Command
+      const blocks = [...commandsContainer.querySelectorAll('.cmd-block')];
+      for (const b of blocks) {
+        const v = validateUniqueConditionNames(b, true);
+        if (!v.ok) { alert('Có tên điều kiện trùng trong một Command. Hãy sửa trước khi tạo cases.'); return; }
+      }
+
+      const { equipmentTypeName, commands } = readAll();
+      if (!equipmentTypeName) { alert('Vui lòng nhập Equipment Type Name.'); return; }
+      if (commands.length === 0) { alert('Vui lòng thêm ít nhất 1 Command.'); return; }
+
+      const commandsCasesMap = {};
+      try {
+        for (const cmd of commands) {
+          if (!Array.isArray(cmd.conds) || cmd.conds.length === 0) {
+            throw new Error(`Command "${cmd.name}" chưa có điều kiện nào.`);
+          }
+          // Cảnh báo nếu marker key đụng tên Condition (tránh override)
+          if (cmd.markerKey) {
+            const hit = cmd.conds.some(c => normalize(c.name) === normalize(cmd.markerKey));
+            if (hit) {
+              alert(`Marker key "${cmd.markerKey}" của Command "${cmd.name}" trùng tên một Condition. Vui lòng đổi key để tránh ghi đè.`);
+              return;
+            }
+          }
+
+          // 1) Sinh tổ hợp theo chính conditions của command
+          let cases = generateCombinationsForCommand(cmd.conds);
+
+          // 2) Chèn marker nếu có key (value có thể trống). Chèn SAU CÙNG bằng insertion order.
+          if (cmd.markerKey && cmd.markerKey.length > 0) {
+            const key = cmd.markerKey;
+            const val = (cmd.markerValue ?? '');
+            cases = cases.map(one => ({ ...one, [key]: val })); // key nằm CUỐI
+          }
+
+          // Lưu
+          commandsCasesMap[cmd.name] = cases;
+        }
+      } catch (e) {
+        alert(e.message || 'Có lỗi xảy ra khi sinh tổ hợp.');
+        return;
+      }
+
+      // Stats + YAML/JSON
+      updateStats(equipmentTypeName, commandsCasesMap);
+      const yaml = toYAML(equipmentTypeName, commandsCasesMap);
+      el('#yamlBlock').textContent = yaml;
+      el('#yamlBlock').style.display = 'block';
+
+      lastEquipmentType = equipmentTypeName;
+      lastCommandsCasesMap = commandsCasesMap;
+      enableExports(true);
+    });
+
+    el('#downloadJSON').addEventListener('click', () => {
+      const json = toJSON(lastEquipmentType, lastCommandsCasesMap);
+      const baseET = (lastEquipmentType || 'Equipment').replace(/[^\w\-]+/g,'_');
+      download(`${baseET}_cases.json`, json, 'application/json');
+    });
+
+    el('#downloadYAML').addEventListener('click', () => {
+      const yaml = toYAML(lastEquipmentType, lastCommandsCasesMap);
+      const baseET = (lastEquipmentType || 'Equipment').replace(/[^\w\-]+/g,'_');
+      download(`${baseET}_cases.yaml`, yaml, 'text/yaml');
+    });
+
+    el('#copyYAML').addEventListener('click', async () => {
+      const yaml = toYAML(lastEquipmentType, lastCommandsCasesMap);
+      try { await navigator.clipboard.writeText(yaml); alert('Đã copy YAML vào clipboard!'); }
+      catch { alert('Trình duyệt không cho phép copy tự động. Hãy chọn & copy thủ công.'); }
+    });
+
+    // Khởi tạo mặc định
+    addCommandBlock({ name: 'On Control', markerKey: 'bOnOffCmd', markerValue: 'abc', conditions: [{ name: 'bOnOffStatus', values: ['Off','On'] }] });
+  </script>
+</body>
+</html>
